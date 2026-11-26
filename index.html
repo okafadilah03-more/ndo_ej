@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Portal Tools RF</title>
+<style>
+  :root{
+    --bg:#f6f6f4; --surface:#ffffff; --ink:#1d1d1f; --muted:#5f6368; --line:#e2e2de;
+    --red:#d9181f; --red-soft:#fde9ea; --yellow:#ffc20e; --focus:#1a5fd0;
+    --shadow:0 1px 2px rgba(0,0,0,.05);
+  }
+  @media (prefers-color-scheme: dark){
+    :root{
+      --bg:#141416; --surface:#1d1d21; --ink:#f1f1f2; --muted:#a5a8ad; --line:#2d2d33;
+      --red:#ff5a5f; --red-soft:#3a1d1f; --focus:#6ea2ff; --shadow:none;
+    }
+  }
+  *{box-sizing:border-box}
+  body{
+    margin:0; background:var(--bg); color:var(--ink);
+    font:16px/1.55 system-ui,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
+  }
+  .band{height:6px; background:linear-gradient(90deg,var(--red) 0 70%,var(--yellow) 70% 100%)}
+  .wrap{max-width:1040px; margin:0 auto; padding:0 20px}
+
+  header{padding:32px 0 22px}
+  .brand{display:flex; align-items:center; gap:18px; flex-wrap:wrap}
+  .logo-chip{background:#fff; border:1px solid var(--line); border-radius:12px; padding:6px 12px; display:flex}
+  .logo-chip img{height:40px; width:auto; display:block}
+  h1{margin:0; font-size:clamp(26px,4.5vw,38px); line-height:1.15; letter-spacing:-.02em; font-weight:750}
+  .sub{margin:10px 0 0; color:var(--muted); max-width:60ch}
+
+  .tools{display:flex; flex-wrap:wrap; gap:12px; align-items:center; padding:8px 0 20px}
+  .search{flex:1 1 260px}
+  .search input{
+    width:100%; padding:12px 14px; font:inherit; color:var(--ink);
+    background:var(--surface); border:1px solid var(--line); border-radius:10px;
+  }
+  .chips{display:flex; flex-wrap:wrap; gap:8px}
+  .chip{
+    font:inherit; font-size:14px; padding:8px 14px; border-radius:999px; cursor:pointer;
+    background:var(--surface); color:var(--ink); border:1px solid var(--line);
+  }
+  .chip[aria-pressed="true"]{background:var(--red); border-color:var(--red); color:#fff}
+  :where(input,button,a):focus-visible{outline:3px solid var(--focus); outline-offset:2px}
+
+  .grid{display:grid; grid-template-columns:repeat(auto-fill,minmax(290px,1fr)); gap:16px; padding-bottom:40px}
+  .card{
+    display:flex; flex-direction:column; gap:10px; padding:20px;
+    background:var(--surface); border:1px solid var(--line); border-radius:14px;
+    box-shadow:var(--shadow); text-decoration:none; color:inherit;
+    transition:border-color .15s, transform .15s;
+  }
+  .card:hover{border-color:var(--red); transform:translateY(-2px)}
+  .top{display:flex; align-items:center; gap:12px}
+  .badge{
+    width:42px; height:42px; flex:none; border-radius:11px; display:grid; place-items:center;
+    background:var(--red-soft); color:var(--red); font-weight:800; font-size:17px;
+  }
+  .card h2{margin:0; font-size:18px; line-height:1.25}
+  .card p{margin:0; color:var(--muted); font-size:15px; flex:1}
+  .meta{display:flex; justify-content:space-between; align-items:center; gap:8px; font-size:13px; color:var(--muted)}
+  .tag{padding:3px 10px; border-radius:999px; background:var(--bg); border:1px solid var(--line)}
+  .open{color:var(--red); font-weight:650}
+
+  .empty{display:none; padding:40px 0 60px; color:var(--muted)}
+  footer{border-top:1px solid var(--line); padding:20px 0 32px; color:var(--muted); font-size:14px}
+
+  @media (prefers-reduced-motion: reduce){ .card{transition:none} .card:hover{transform:none} }
+</style>
+</head>
+<body>
+<div class="band" aria-hidden="true"></div>
+
+<div class="wrap">
+  <header>
+    <div class="brand">
+      <span class="logo-chip" id="logoChip" hidden><img id="logo" alt="Indosat Ooredoo Hutchison"></span>
+      <h1 id="title">Portal Tools RF</h1>
+    </div>
+    <p class="sub" id="subtitle"></p>
+  </header>
+
+  <div class="tools">
+    <div class="search">
+      <input id="q" type="search" placeholder="Cari tool, misalnya AOR atau slide" aria-label="Cari tool">
+    </div>
+    <div class="chips" id="chips" role="group" aria-label="Filter kategori"></div>
+  </div>
+
+  <main>
+    <div class="grid" id="grid"></div>
+    <div class="empty" id="empty">Tidak ada tool yang cocok. Coba kata kunci lain atau pilih kategori Semua.</div>
+  </main>
+
+  <footer id="footer"></footer>
+</div>
+
+<script src="menu.js"></script>
+<script>
+(function(){
+  document.title = SITE.title;
+  document.getElementById('title').textContent = SITE.title;
+  document.getElementById('subtitle').textContent = SITE.subtitle || '';
+  document.getElementById('footer').textContent = SITE.footer || '';
+
+  var logo = document.getElementById('logo');
+  var chip = document.getElementById('logoChip');
+  if (SITE.logo) {
+    logo.onload = function(){ chip.hidden = false; };
+    logo.onerror = function(){ chip.hidden = true; };
+    logo.src = SITE.logo;
+  }
+
+  var grid = document.getElementById('grid');
+  var empty = document.getElementById('empty');
+  var chipsEl = document.getElementById('chips');
+  var q = document.getElementById('q');
+  var active = 'Semua';
+
+  var tags = ['Semua'];
+  TOOLS.forEach(function(t){ if (t.tag && tags.indexOf(t.tag) < 0) tags.push(t.tag); });
+
+  tags.forEach(function(tag){
+    var b = document.createElement('button');
+    b.className = 'chip'; b.type = 'button'; b.textContent = tag;
+    b.setAttribute('aria-pressed', tag === active);
+    b.onclick = function(){
+      active = tag;
+      Array.prototype.forEach.call(chipsEl.children, function(c){
+        c.setAttribute('aria-pressed', c.textContent === active);
+      });
+      render();
+    };
+    chipsEl.appendChild(b);
+  });
+
+  function fmt(d){
+    if (!d) return '';
+    var p = d.split('-'); if (p.length !== 3) return d;
+    var bln = ['Jan','Feb','Mar','Apr','Mei','Jun','Jul','Agu','Sep','Okt','Nov','Des'];
+    return 'Diperbarui ' + parseInt(p[2],10) + ' ' + bln[parseInt(p[1],10)-1] + ' ' + p[0];
+  }
+
+  function render(){
+    var term = q.value.trim().toLowerCase();
+    grid.innerHTML = '';
+    var shown = 0;
+    TOOLS.forEach(function(t){
+      if (active !== 'Semua' && t.tag !== active) return;
+      if (term && (t.name + ' ' + t.desc + ' ' + (t.tag||'')).toLowerCase().indexOf(term) < 0) return;
+      shown++;
+      var a = document.createElement('a');
+      a.className = 'card';
+      a.href = t.file; a.target = '_blank'; a.rel = 'noopener';
+
+      var top = document.createElement('div'); top.className = 'top';
+      var badge = document.createElement('div'); badge.className = 'badge';
+      badge.textContent = t.name.trim().charAt(0).toUpperCase();
+      var h = document.createElement('h2'); h.textContent = t.name;
+      top.appendChild(badge); top.appendChild(h);
+
+      var p = document.createElement('p'); p.textContent = t.desc;
+
+      var meta = document.createElement('div'); meta.className = 'meta';
+      var left = document.createElement('span');
+      if (t.tag){ var tg = document.createElement('span'); tg.className = 'tag'; tg.textContent = t.tag; left.appendChild(tg); }
+      var right = document.createElement('span'); right.textContent = fmt(t.updated);
+      meta.appendChild(left); meta.appendChild(right);
+
+      var open = document.createElement('span'); open.className = 'open'; open.textContent = 'Buka tool';
+
+      a.appendChild(top); a.appendChild(p); a.appendChild(meta); a.appendChild(open);
+      grid.appendChild(a);
+    });
+    empty.style.display = shown ? 'none' : 'block';
+  }
+
+  q.addEventListener('input', render);
+  render();
+})();
+</script>
+</body>
+</html>
